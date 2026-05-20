@@ -84,23 +84,6 @@ def save_password_hash(pw_hash: str):
 
 
 # ─────────────────────────────────────────────
-# Temporäre Debug-Route (wird nach Test entfernt)
-# ─────────────────────────────────────────────
-
-@app.route('/debug-pw')
-def debug_pw():
-    env_pw = os.environ.get('APP_PASSWORD', 'NICHT GESETZT')
-    hash_file = os.path.join(DATA_DIR, 'password.hash')
-    hash_exists = os.path.exists(hash_file)
-    return (
-        f"APP_PASSWORD Länge: {len(env_pw)} Zeichen | "
-        f"Erste 2 Zeichen: '{env_pw[:2]}' | "
-        f"Letzte 2 Zeichen: '{env_pw[-2:]}' | "
-        f"Hash-File vorhanden: {hash_exists}"
-    )
-
-
-# ─────────────────────────────────────────────
 # Auth
 # ─────────────────────────────────────────────
 
