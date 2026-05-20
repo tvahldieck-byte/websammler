@@ -7,83 +7,108 @@
     <h4 class="fw-bold mb-0"><i class="bi bi-gear"></i> Einstellungen</h4>
   </div>
 
-  {# ── Bereiche ── #}
-  <div class="col-12 col-md-6">
-    <div class="card shadow-sm h-100">
+  {# ── Bereiche + ihre Gruppen ── #}
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm">
       <div class="card-header fw-semibold">
-        <i class="bi bi-collection"></i> Bereiche
-        <span class="text-muted small">(Radio-Buttons, Einfachauswahl)</span>
+        <i class="bi bi-collection"></i> Bereiche &amp; Gruppen
       </div>
-      <div class="card-body">
+      <div class="card-body p-0">
+
         {% if bereiche %}
-          <ul class="list-group mb-3">
+          <div class="accordion accordion-flush" id="bereichAccordion">
             {% for b in bereiche %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>{{ b.name }}</span>
-                <form method="post" onsubmit="return confirm('Bereich löschen?')">
-                  <input type="hidden" name="aktion" value="bereich_loeschen">
-                  <input type="hidden" name="bereich_id" value="{{ b.id }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted small mb-3">Noch keine Bereiche vorhanden.</p>
-        {% endif %}
-
-        <form method="post" class="d-flex gap-2">
-          <input type="hidden" name="aktion" value="bereich_neu">
-          <input type="text" name="bereich_name" class="form-control form-control-sm"
-                 placeholder="Neuer Bereich..." required>
-          <button type="submit" class="btn btn-primary btn-sm text-nowrap">
-            <i class="bi bi-plus-lg"></i> Anlegen
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  {# ── Kategorien ── #}
-  <div class="col-12 col-md-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-tags"></i> Themen / Kategorien
-        <span class="text-muted small">(Mehrfachauswahl)</span>
-      </div>
-      <div class="card-body">
-        {% if kategorien %}
-          <div class="d-flex flex-wrap gap-2 mb-3">
-            {% for k in kategorien %}
-              <form method="post" class="m-0" onsubmit="return confirm('Kategorie löschen?')">
-                <input type="hidden" name="aktion" value="kat_loeschen">
-                <input type="hidden" name="kat_id" value="{{ k.id }}">
-                <button type="submit" class="btn btn-outline-success btn-sm">
-                  {{ k.name }} <i class="bi bi-x ms-1"></i>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button {% if not loop.first %}collapsed{% endif %} py-2"
+                        type="button" data-bs-toggle="collapse"
+                        data-bs-target="#bereich{{ b.id }}">
+                  <span class="fw-semibold">{{ b.name }}</span>
+                  <span class="badge bg-secondary ms-2">{{ b.kategorien|length }} Gruppen</span>
                 </button>
-              </form>
+              </h2>
+              <div id="bereich{{ b.id }}"
+                   class="accordion-collapse collapse {% if loop.first %}show{% endif %}"
+                   data-bs-parent="#bereichAccordion">
+                <div class="accordion-body pt-2 pb-3">
+
+                  {# Gruppen dieses Bereichs #}
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    {% for k in b.kategorien|sort(attribute='name') %}
+                      <form method="post" class="m-0"
+                            onsubmit="return confirm('Gruppe löschen?')">
+                        <input type="hidden" name="aktion" value="kat_loeschen">
+                        <input type="hidden" name="kat_id" value="{{ k.id }}">
+                        <button type="submit" class="btn btn-outline-success btn-sm">
+                          {{ k.name }} <i class="bi bi-x ms-1"></i>
+                        </button>
+                      </form>
+                    {% else %}
+                      <span class="text-muted small fst-italic">Noch keine Gruppen.</span>
+                    {% endfor %}
+                  </div>
+
+                  {# Neue Gruppe für diesen Bereich #}
+                  <form method="post" class="d-flex gap-2">
+                    <input type="hidden" name="aktion" value="kat_neu">
+                    <input type="hidden" name="kat_bereich_id" value="{{ b.id }}">
+                    <input type="text" name="kat_name" class="form-control form-control-sm"
+                           placeholder="Neue Gruppe…" required style="max-width:220px;">
+                    <button type="submit" class="btn btn-success btn-sm text-nowrap">
+                      <i class="bi bi-plus-lg"></i> Anlegen
+                    </button>
+                  </form>
+
+                  {# Bereich-Aktionen #}
+                  <div class="d-flex gap-2 mt-3 pt-2 border-top">
+                    <form method="post" class="d-flex gap-2 flex-grow-1">
+                      <input type="hidden" name="aktion" value="bereich_umbenennen">
+                      <input type="hidden" name="bereich_id" value="{{ b.id }}">
+                      <input type="text" name="bereich_name_neu" class="form-control form-control-sm"
+                             placeholder="Bereich umbenennen…" style="max-width:200px;">
+                      <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">
+                        <i class="bi bi-pencil"></i> Umbenennen
+                      </button>
+                    </form>
+                    <form method="post"
+                          onsubmit="return confirm('Bereich und ALLE Gruppen löschen?')">
+                      <input type="hidden" name="aktion" value="bereich_loeschen">
+                      <input type="hidden" name="bereich_id" value="{{ b.id }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i> Bereich löschen
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
             {% endfor %}
           </div>
         {% else %}
-          <p class="text-muted small mb-3">Noch keine Kategorien vorhanden.</p>
+          <div class="p-4 text-muted text-center">
+            <i class="bi bi-collection" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">Noch keine Bereiche vorhanden.</p>
+          </div>
         {% endif %}
 
-        <form method="post" class="d-flex gap-2">
-          <input type="hidden" name="aktion" value="kat_neu">
-          <input type="text" name="kat_name" class="form-control form-control-sm"
-                 placeholder="Neue Kategorie..." required>
-          <button type="submit" class="btn btn-success btn-sm text-nowrap">
-            <i class="bi bi-plus-lg"></i> Anlegen
-          </button>
-        </form>
+        {# Neuen Bereich anlegen #}
+        <div class="p-3 border-top bg-light">
+          <form method="post" class="d-flex gap-2">
+            <input type="hidden" name="aktion" value="bereich_neu">
+            <input type="text" name="bereich_name" class="form-control form-control-sm"
+                   placeholder="Neuer Bereich…" required style="max-width:220px;">
+            <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+              <i class="bi bi-plus-lg"></i> Bereich anlegen
+            </button>
+          </form>
+        </div>
+
       </div>
     </div>
   </div>
 
   {# ── Passwort ändern ── #}
-  <div class="col-12 col-md-6">
+  <div class="col-12 col-md-6 col-xl-4">
     <div class="card shadow-sm">
       <div class="card-header fw-semibold">
         <i class="bi bi-key"></i> Passwort ändern
@@ -97,7 +122,7 @@
                    required autocomplete="new-password">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Passwort bestätigen</label>
+            <label class="form-label small fw-semibold">Bestätigung</label>
             <input type="password" name="pw_bestaetigung" class="form-control form-control-sm"
                    required autocomplete="new-password">
           </div>
@@ -105,6 +130,23 @@
             <i class="bi bi-key-fill"></i> Passwort ändern
           </button>
         </form>
+      </div>
+    </div>
+
+    {# ── Dropbox-Info ── #}
+    <div class="card shadow-sm mt-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-dropbox"></i> Dropbox-Videos
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">
+          Dropbox-Links werden als Provider erkannt. Zum direkten Abspielen:
+        </p>
+        <ul class="small text-muted mb-0 ps-3">
+          <li>Dropbox-Datei per „Link teilen" freigeben</li>
+          <li>In der URL <code>?dl=0</code> → <code>?raw=1</code> ersetzen</li>
+          <li>Diese URL in WebSammler eintragen</li>
+        </ul>
       </div>
     </div>
   </div>

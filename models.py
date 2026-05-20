@@ -17,6 +17,9 @@ class Bereich(db.Model):
     name = db.Column(db.Text, nullable=False)
     reihenfolge = db.Column(db.Integer, default=0)
     datensaetze = db.relationship('Datensatz', backref='bereich', lazy=True)
+    # Kategorien gehören jetzt zu einem Bereich
+    kategorien = db.relationship('Kategorie', backref='bereich', lazy=True,
+                                  cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Bereich {self.name}>'
@@ -26,6 +29,7 @@ class Kategorie(db.Model):
     __tablename__ = 'kategorien'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False)
+    bereich_id = db.Column(db.Integer, db.ForeignKey('bereiche.id'), nullable=True)
 
     def __repr__(self):
         return f'<Kategorie {self.name}>'

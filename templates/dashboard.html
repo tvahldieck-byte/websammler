@@ -2,6 +2,20 @@
 {% block title %}Übersicht – WebSammler{% endblock %}
 
 {% block content %}
+
+{% if not bereiche %}
+  {# Keine Bereiche: Hinweis #}
+  <div class="text-center py-5">
+    <i class="bi bi-collection text-muted" style="font-size:4rem;"></i>
+    <h4 class="mt-3">Noch keine Bereiche angelegt</h4>
+    <p class="text-muted">Legen Sie zuerst einen Bereich an, bevor Sie Einträge erfassen.</p>
+    <a href="{{ url_for('einstellungen') }}" class="btn btn-primary">
+      <i class="bi bi-gear"></i> Zu den Einstellungen
+    </a>
+  </div>
+
+{% else %}
+
 <div class="row g-3">
 
   {# ── Bereichs-Auswahl ── #}
@@ -9,20 +23,17 @@
     <div class="card shadow-sm">
       <div class="card-body py-2 px-3">
         <div class="d-flex flex-wrap gap-2 align-items-center">
-          <span class="fw-semibold me-1 text-muted small">BEREICH:</span>
-          <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'bereich': ''})) }}"
-             class="btn btn-sm {% if not aktiver_bereich %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            Alle
-          </a>
+          <span class="fw-semibold me-1 text-muted small text-uppercase">Bereich:</span>
           {% for b in bereiche %}
-            <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'bereich': b.id})) }}"
+            <a href="{{ url_for('dashboard', bereich=b.id) }}"
                class="btn btn-sm {% if aktiver_bereich == b.id %}btn-primary{% else %}btn-outline-primary{% endif %}">
               {{ b.name }}
             </a>
           {% endfor %}
-          {% if not bereiche %}
-            <span class="text-muted small">Noch keine Bereiche – <a href="{{ url_for('einstellungen') }}">Einstellungen</a></span>
-          {% endif %}
+          <a href="{{ url_for('einstellungen') }}" class="btn btn-sm btn-outline-secondary ms-auto"
+             title="Bereiche verwalten">
+            <i class="bi bi-gear"></i>
+          </a>
         </div>
       </div>
     </div>
@@ -32,138 +43,144 @@
   <div class="col-12">
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center py-2">
-        <span class="fw-semibold">
-          <i class="bi bi-funnel"></i> Filter
-        </span>
+        <span class="fw-semibold"><i class="bi bi-funnel"></i> Filter</span>
         <button class="btn btn-sm btn-outline-secondary" type="button"
                 data-bs-toggle="collapse" data-bs-target="#filterPanel">
           <i class="bi bi-chevron-down"></i>
         </button>
       </div>
       <div class="collapse show" id="filterPanel">
-        <div class="card-body">
+        <div class="card-body pb-2">
           <form method="get" id="filterForm">
-            {% if aktiver_bereich %}
-              <input type="hidden" name="bereich" value="{{ aktiver_bereich }}">
-            {% endif %}
+            <input type="hidden" name="bereich" value="{{ aktiver_bereich }}">
 
-            {# Stichwortsuche #}
-            <div class="row g-2 mb-3">
-              <div class="col-12 col-md-4">
-                <label class="form-label small fw-semibold mb-1">Stichwortsuche</label>
+            {# Zeile 1: Textsuche + Provider + Bildqualität + Länge #}
+            <div class="row g-2 mb-2">
+              <div class="col-12 col-sm-4 col-lg-3">
                 <div class="input-group input-group-sm">
                   <span class="input-group-text"><i class="bi bi-search"></i></span>
-                  <input type="text" name="q" class="form-control" value="{{ suche }}" placeholder="Titel suchen...">
+                  <input type="text" name="q" class="form-control" value="{{ suche }}"
+                         placeholder="Titel suchen…">
                 </div>
               </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small fw-semibold mb-1">Bildqualität</label>
+              <div class="col-6 col-sm-3 col-lg-2">
+                <select name="prov" class="form-select form-select-sm">
+                  <option value="">Alle Provider</option>
+                  {% for p in providers %}
+                    <option value="{{ p }}" {% if provider_filter == p %}selected{% endif %}>{{ p }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6 col-sm-2 col-lg-2">
                 <select name="bq" class="form-select form-select-sm">
-                  <option value="">Alle</option>
+                  <option value="">Alle BQ</option>
                   <option value="1" {% if bildqualitaet == 1 %}selected{% endif %}>★ (1)</option>
                   <option value="2" {% if bildqualitaet == 2 %}selected{% endif %}>★★ (2)</option>
                   <option value="3" {% if bildqualitaet == 3 %}selected{% endif %}>★★★ (3)</option>
                 </select>
               </div>
-              <div class="col-6 col-md-3">
-                <label class="form-label small fw-semibold mb-1">Länge (Minuten)</label>
+              <div class="col-8 col-sm-3 col-lg-2">
                 <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="bi bi-clock"></i></span>
                   <input type="number" name="lv" class="form-control" placeholder="von"
-                         value="{{ laenge_von if laenge_von is not none else '' }}" min="0">
-                  <span class="input-group-text">–</span>
+                         value="{{ laenge_von if laenge_von is not none else '' }}" min="0" style="width:55px;">
+                  <span class="input-group-text px-1">–</span>
                   <input type="number" name="lb" class="form-control" placeholder="bis"
-                         value="{{ laenge_bis if laenge_bis is not none else '' }}" min="0">
+                         value="{{ laenge_bis if laenge_bis is not none else '' }}" min="0" style="width:55px;">
                 </div>
               </div>
-              <div class="col-12 col-md-3 d-flex align-items-end gap-2">
+              <div class="col-4 col-sm-12 col-lg-3 d-flex gap-2 align-items-start">
                 <button type="submit" class="btn btn-primary btn-sm">
                   <i class="bi bi-funnel-fill"></i> Filtern
                 </button>
-                <a href="{{ url_for('dashboard', bereich=aktiver_bereich or '') }}" class="btn btn-outline-secondary btn-sm">
-                  <i class="bi bi-x-circle"></i> Zurücksetzen
+                <a href="{{ url_for('dashboard', bereich=aktiver_bereich) }}"
+                   class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-x-circle"></i> Reset
                 </a>
               </div>
             </div>
 
-            {# Kategorie-Filter #}
+            {# Zeile 2: Kategorien des aktiven Bereichs #}
             {% if kategorien %}
-            <div>
-              <label class="form-label small fw-semibold mb-1">Thema / Kategorie</label>
-              <div class="d-flex flex-wrap gap-1">
-                {% for k in kategorien %}
-                  <div class="form-check form-check-inline m-0">
-                    <input class="form-check-input visually-hidden" type="checkbox"
-                           name="kat" value="{{ k.id }}" id="kat{{ k.id }}"
-                           {% if k.id in aktive_kats %}checked{% endif %}
-                           onchange="document.getElementById('filterForm').submit()">
-                    <label class="btn btn-sm {% if k.id in aktive_kats %}btn-success{% else %}btn-outline-success{% endif %} px-2 py-1"
-                           for="kat{{ k.id }}" style="cursor:pointer;font-size:.8rem;">
-                      {{ k.name }}
-                    </label>
-                  </div>
-                {% endfor %}
-              </div>
+            <div class="d-flex flex-wrap gap-1 align-items-center pt-1 border-top">
+              <span class="text-muted small me-1">Gruppen:</span>
+              {% for k in kategorien %}
+                <div class="form-check form-check-inline m-0">
+                  <input class="form-check-input visually-hidden" type="checkbox"
+                         name="kat" value="{{ k.id }}" id="fkat{{ k.id }}"
+                         {% if k.id in aktive_kats %}checked{% endif %}
+                         onchange="document.getElementById('filterForm').submit()">
+                  <label class="btn btn-sm {% if k.id in aktive_kats %}btn-success{% else %}btn-outline-success{% endif %} px-2 py-0"
+                         for="fkat{{ k.id }}" style="cursor:pointer;font-size:.8rem;line-height:1.8;">
+                    {{ k.name }}
+                  </label>
+                </div>
+              {% endfor %}
             </div>
             {% endif %}
+
           </form>
         </div>
       </div>
     </div>
   </div>
 
-  {# ── Ergebnis-Tabelle ── #}
+  {# ── Tabelle ── #}
   <div class="col-12">
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center py-2">
         <span class="fw-semibold">
           <i class="bi bi-list-ul"></i>
           {{ datensaetze|length }} Einträge
+          {% if aktiver_bereich_obj %}
+            <span class="text-muted fw-normal">in „{{ aktiver_bereich_obj.name }}"</span>
+          {% endif %}
         </span>
-        <a href="{{ url_for('neu') }}" class="btn btn-success btn-sm">
+        <a href="{{ url_for('neu', bereich=aktiver_bereich) }}" class="btn btn-success btn-sm">
           <i class="bi bi-plus-lg"></i> Neu
         </a>
       </div>
       <div class="card-body p-0">
         {% if datensaetze %}
         <div class="table-responsive">
-          <table class="table table-hover table-sm mb-0 align-middle" id="haupttabelle">
+          <table class="table table-hover table-sm mb-0 align-middle">
             <thead class="table-light">
               <tr>
-                <th style="width:50px;"></th>
+                <th style="width:52px;"></th>
                 <th>
-                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'titel','dir':'asc' if sort_by=='titel' and sort_dir=='desc' else 'desc'})) }}"
+                  {% set nsort = 'asc' if sort_by=='titel' and sort_dir=='desc' else 'desc' %}
+                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'titel','dir':nsort})) }}"
                      class="text-decoration-none text-dark">
-                    Titel
-                    {% if sort_by == 'titel' %}<i class="bi bi-caret-{{ 'down' if sort_dir == 'desc' else 'up' }}-fill text-primary"></i>{% endif %}
+                    Titel{% if sort_by=='titel' %} <i class="bi bi-caret-{{ 'down' if sort_dir=='desc' else 'up' }}-fill text-primary small"></i>{% endif %}
                   </a>
                 </th>
                 <th>
-                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'provider','dir':'asc' if sort_by=='provider' and sort_dir=='desc' else 'desc'})) }}"
+                  {% set nsort = 'asc' if sort_by=='provider' and sort_dir=='desc' else 'desc' %}
+                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'provider','dir':nsort})) }}"
                      class="text-decoration-none text-dark">
-                    Provider
-                    {% if sort_by == 'provider' %}<i class="bi bi-caret-{{ 'down' if sort_dir == 'desc' else 'up' }}-fill text-primary"></i>{% endif %}
+                    Provider{% if sort_by=='provider' %} <i class="bi bi-caret-{{ 'down' if sort_dir=='desc' else 'up' }}-fill text-primary small"></i>{% endif %}
                   </a>
                 </th>
-                <th class="d-none d-md-table-cell">Thema</th>
+                <th class="d-none d-md-table-cell">Gruppen</th>
                 <th>
-                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'bildqualitaet','dir':'asc' if sort_by=='bildqualitaet' and sort_dir=='desc' else 'desc'})) }}"
+                  {% set nsort = 'asc' if sort_by=='bildqualitaet' and sort_dir=='desc' else 'desc' %}
+                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'bildqualitaet','dir':nsort})) }}"
                      class="text-decoration-none text-dark">
-                    BQ
-                    {% if sort_by == 'bildqualitaet' %}<i class="bi bi-caret-{{ 'down' if sort_dir == 'desc' else 'up' }}-fill text-primary"></i>{% endif %}
-                  </a>
-                </th>
-                <th>
-                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'laenge_min','dir':'asc' if sort_by=='laenge_min' and sort_dir=='desc' else 'desc'})) }}"
-                     class="text-decoration-none text-dark">
-                    Min
-                    {% if sort_by == 'laenge_min' %}<i class="bi bi-caret-{{ 'down' if sort_dir == 'desc' else 'up' }}-fill text-primary"></i>{% endif %}
+                    BQ{% if sort_by=='bildqualitaet' %} <i class="bi bi-caret-{{ 'down' if sort_dir=='desc' else 'up' }}-fill text-primary small"></i>{% endif %}
                   </a>
                 </th>
                 <th>
-                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'aufrufe','dir':'asc' if sort_by=='aufrufe' and sort_dir=='desc' else 'desc'})) }}"
+                  {% set nsort = 'asc' if sort_by=='laenge_min' and sort_dir=='desc' else 'desc' %}
+                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'laenge_min','dir':nsort})) }}"
                      class="text-decoration-none text-dark">
-                    <i class="bi bi-eye"></i>
-                    {% if sort_by == 'aufrufe' %}<i class="bi bi-caret-{{ 'down' if sort_dir == 'desc' else 'up' }}-fill text-primary"></i>{% endif %}
+                    Min{% if sort_by=='laenge_min' %} <i class="bi bi-caret-{{ 'down' if sort_dir=='desc' else 'up' }}-fill text-primary small"></i>{% endif %}
+                  </a>
+                </th>
+                <th>
+                  {% set nsort = 'asc' if sort_by=='aufrufe' and sort_dir=='desc' else 'desc' %}
+                  <a href="{{ url_for('dashboard', **request.args.to_dict()|merge({'sort':'aufrufe','dir':nsort})) }}"
+                     class="text-decoration-none text-dark">
+                    <i class="bi bi-eye"></i>{% if sort_by=='aufrufe' %} <i class="bi bi-caret-{{ 'down' if sort_dir=='desc' else 'up' }}-fill text-primary small"></i>{% endif %}
                   </a>
                 </th>
                 <th></th>
@@ -172,13 +189,13 @@
             <tbody>
               {% for ds in datensaetze %}
               <tr class="ds-row" style="cursor:pointer;" data-id="{{ ds.id }}">
-                <td class="p-1">
+                <td class="p-1 ps-2">
                   {% if ds.thumbnail_url %}
                     <img src="{{ ds.thumbnail_url }}" alt="" class="rounded"
-                         style="width:50px;height:35px;object-fit:cover;">
+                         style="width:52px;height:36px;object-fit:cover;">
                   {% else %}
                     <div class="bg-secondary rounded d-flex align-items-center justify-content-center"
-                         style="width:50px;height:35px;">
+                         style="width:52px;height:36px;">
                       <i class="bi bi-image text-white small"></i>
                     </div>
                   {% endif %}
@@ -195,20 +212,23 @@
                 <td class="d-none d-md-table-cell">
                   {% for k in ds.kategorien %}
                     <span class="badge bg-success me-1">{{ k.name }}</span>
+                  {% else %}
+                    <span class="text-muted small">—</span>
                   {% endfor %}
                 </td>
-                <td>
+                <td class="text-nowrap">
                   {% if ds.bildqualitaet %}
                     <span class="text-warning">
-                      {% for i in range(ds.bildqualitaet) %}★{% endfor %}{% for i in range(3 - ds.bildqualitaet) %}☆{% endfor %}
+                      {{ '★' * ds.bildqualitaet }}{{ '☆' * (3 - ds.bildqualitaet) }}
                     </span>
                   {% else %}—{% endif %}
                 </td>
                 <td>{{ ds.laenge_min if ds.laenge_min else '—' }}</td>
                 <td>{{ ds.aufrufe or 0 }}</td>
                 <td class="text-end pe-2">
-                  <button class="btn btn-success btn-sm go-btn" data-id="{{ ds.id }}" data-url="{{ ds.url }}"
-                          title="Abspielen" onclick="event.stopPropagation()">
+                  <button class="btn btn-success btn-sm go-btn"
+                          data-id="{{ ds.id }}" data-url="{{ ds.url }}"
+                          onclick="event.stopPropagation()">
                     <i class="bi bi-play-fill"></i> Go
                   </button>
                 </td>
@@ -221,7 +241,7 @@
           <div class="text-center py-5 text-muted">
             <i class="bi bi-inbox" style="font-size:3rem;"></i>
             <p class="mt-2">Keine Einträge gefunden.</p>
-            <a href="{{ url_for('neu') }}" class="btn btn-primary">
+            <a href="{{ url_for('neu', bereich=aktiver_bereich) }}" class="btn btn-primary btn-sm">
               <i class="bi bi-plus-lg"></i> Ersten Eintrag anlegen
             </a>
           </div>
@@ -229,7 +249,9 @@
       </div>
     </div>
   </div>
+
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -241,22 +263,20 @@ document.querySelectorAll('.ds-row').forEach(row => {
   });
 });
 
-// Go-Button
+// Go-Button: Zähler erhöhen + URL öffnen
 document.querySelectorAll('.go-btn').forEach(btn => {
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
     const id = btn.dataset.id;
     const url = btn.dataset.url;
     try {
-      const resp = await fetch('/datensatz/' + id + '/go', {method: 'POST'});
+      const resp = await fetch('/datensatz/' + id + '/go', { method: 'POST' });
       const data = await resp.json();
-      // Zähler aktualisieren
-      const row = btn.closest('tr');
-      const cells = row.querySelectorAll('td');
+      // Zähler in der Zeile aktualisieren
+      const cells = btn.closest('tr').querySelectorAll('td');
       cells[6].textContent = data.aufrufe;
-      // URL öffnen
       window.open(url, '_blank');
-    } catch(e) {
+    } catch {
       window.open(url, '_blank');
     }
   });

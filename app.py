@@ -1,7 +1,7 @@
 import os
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify
+    flash, jsonify
 )
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -36,17 +36,16 @@ def merge_filter(d, updates):
     """Merged zwei Dicts – für URL-Parameter-Manipulation im Template."""
     result = dict(d)
     result.update(updates)
-    # Leere Werte entfernen
     return {k: v for k, v in result.items() if v != '' and v is not None}
 
 
+# ─────────────────────────────────────────────
 # Login-Manager
+# ─────────────────────────────────────────────
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Bitte anmelden.'
-
-# Einfacher Dummy-User (passwortbasiert)
-APP_PASSWORD_HASH_KEY = 'app_password_hash'
 
 
 class DummyUser(UserMixin):
@@ -64,13 +63,10 @@ def load_user(user_id):
 
 
 def get_password_hash():
-    """Liest den Passwort-Hash aus der DB-Einstellung oder Env-Variable."""
-    # Versuche, den Hash aus einer einfachen Textdatei zu lesen
     hash_file = os.path.join(DATA_DIR, 'password.hash')
     if os.path.exists(hash_file):
         with open(hash_file) as f:
             return f.read().strip()
-    # Fallback: Umgebungsvariable APP_PASSWORD
     raw = os.environ.get('APP_PASSWORD', 'admin')
     return generate_password_hash(raw)
 
@@ -114,20 +110,35 @@ def logout():
 @login_required
 def dashboard():
     bereiche = Bereich.query.order_by(Bereich.reihenfolge, Bereich.name).all()
-    kategorien = Kategorie.query.order_by(Kategorie.name).all()
+
+    # Bereich auswählen – kein "Alle", immer einen Bereich aktiv
+    bereich_id = request.args.get('bereich', type=int)
+    if not bereich_id and bereiche:
+        # Automatisch ersten Bereich vorauswählen
+        return redirect(url_for('dashboard', bereich=bereiche[0].id))
+
+    # Kategorien des aktiven Bereichs
+    aktiver_bereich_obj = None
+    kategorien = []
+    if bereich_id:
+        aktiver_bereich_obj = Bereich.query.get(bereich_id)
+        if aktiver_bereich_obj:
+            kategorien = Kategorie.query.filter_by(bereich_id=bereich_id)\
+                                        .order_by(Kategorie.name).all()
 
     # Filter-Parameter
-    bereich_id = request.args.get('bereich', type=int)
     kat_ids = request.args.getlist('kat', type=int)
     suche = request.args.get('q', '').strip()
     bildqualitaet = request.args.get('bq', type=int)
     laenge_von = request.args.get('lv', type=int)
     laenge_bis = request.args.get('lb', type=int)
+    provider_filter = request.args.get('prov', '').strip()
     sort_by = request.args.get('sort', 'datum')
     sort_dir = request.args.get('dir', 'desc')
 
     query = Datensatz.query
 
+    # Immer nach Bereich filtern
     if bereich_id:
         query = query.filter(Datensatz.bereich_id == bereich_id)
 
@@ -146,6 +157,9 @@ def dashboard():
     if laenge_bis is not None:
         query = query.filter(Datensatz.laenge_min <= laenge_bis)
 
+    if provider_filter:
+        query = query.filter(Datensatz.provider == provider_filter)
+
     # Sortierung
     sort_map = {
         'titel': Datensatz.titel,
@@ -157,12 +171,16 @@ def dashboard():
         'bewertung': Datensatz.bewertung,
     }
     sort_col = sort_map.get(sort_by, Datensatz.datum)
-    if sort_dir == 'asc':
-        query = query.order_by(sort_col.asc())
-    else:
-        query = query.order_by(sort_col.desc())
+    query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
 
     datensaetze = query.all()
+
+    # Provider-Liste für Filter-Dropdown (aus aktuellem Bereich)
+    providers = sorted({
+        ds.provider for ds in
+        Datensatz.query.filter_by(bereich_id=bereich_id).all()
+        if ds.provider
+    })
 
     return render_template(
         'dashboard.html',
@@ -170,11 +188,14 @@ def dashboard():
         bereiche=bereiche,
         kategorien=kategorien,
         aktiver_bereich=bereich_id,
+        aktiver_bereich_obj=aktiver_bereich_obj,
         aktive_kats=kat_ids,
         suche=suche,
         bildqualitaet=bildqualitaet,
         laenge_von=laenge_von,
         laenge_bis=laenge_bis,
+        provider_filter=provider_filter,
+        providers=providers,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
@@ -196,6 +217,21 @@ def api_url_info():
 
 
 # ─────────────────────────────────────────────
+# API: Kategorien für einen Bereich
+# ─────────────────────────────────────────────
+
+@app.route('/api/kategorien')
+@login_required
+def api_kategorien():
+    bereich_id = request.args.get('bereich_id', type=int)
+    if not bereich_id:
+        return jsonify([])
+    kats = Kategorie.query.filter_by(bereich_id=bereich_id)\
+                          .order_by(Kategorie.name).all()
+    return jsonify([{'id': k.id, 'name': k.name} for k in kats])
+
+
+# ─────────────────────────────────────────────
 # Datensatz: Neu
 # ─────────────────────────────────────────────
 
@@ -203,9 +239,11 @@ def api_url_info():
 @login_required
 def neu():
     bereiche = Bereich.query.order_by(Bereich.reihenfolge, Bereich.name).all()
-    kategorien = Kategorie.query.order_by(Kategorie.name).all()
+    # Bereich aus Dashboard-Kontext übernehmen
+    vorgewaehlter_bereich = request.args.get('bereich', type=int)
 
     if request.method == 'POST':
+        bereich_id = request.form.get('bereich_id', type=int) or None
         kat_ids = request.form.getlist('kategorien', type=int)
         ds = Datensatz(
             url=request.form.get('url', '').strip(),
@@ -215,15 +253,27 @@ def neu():
             bildqualitaet=request.form.get('bildqualitaet', type=int),
             laenge_min=request.form.get('laenge_min', type=int),
             bewertung=request.form.get('bewertung', type=int),
-            bereich_id=request.form.get('bereich_id', type=int) or None,
+            bereich_id=bereich_id,
         )
         ds.kategorien = Kategorie.query.filter(Kategorie.id.in_(kat_ids)).all()
         db.session.add(ds)
         db.session.commit()
         flash('Datensatz gespeichert.', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard', bereich=bereich_id or ''))
 
-    return render_template('form.html', ds=None, bereiche=bereiche, kategorien=kategorien)
+    # Kategorien für vorgewählten Bereich
+    kategorien = []
+    if vorgewaehlter_bereich:
+        kategorien = Kategorie.query.filter_by(bereich_id=vorgewaehlter_bereich)\
+                                    .order_by(Kategorie.name).all()
+
+    return render_template(
+        'form.html',
+        ds=None,
+        bereiche=bereiche,
+        kategorien=kategorien,
+        vorgewaehlter_bereich=vorgewaehlter_bereich,
+    )
 
 
 # ─────────────────────────────────────────────
@@ -235,9 +285,9 @@ def neu():
 def detail(ds_id):
     ds = Datensatz.query.get_or_404(ds_id)
     bereiche = Bereich.query.order_by(Bereich.reihenfolge, Bereich.name).all()
-    kategorien = Kategorie.query.order_by(Kategorie.name).all()
 
     if request.method == 'POST':
+        bereich_id = request.form.get('bereich_id', type=int) or None
         kat_ids = request.form.getlist('kategorien', type=int)
         ds.url = request.form.get('url', '').strip()
         ds.provider = request.form.get('provider', '').strip()
@@ -246,13 +296,25 @@ def detail(ds_id):
         ds.bildqualitaet = request.form.get('bildqualitaet', type=int)
         ds.laenge_min = request.form.get('laenge_min', type=int)
         ds.bewertung = request.form.get('bewertung', type=int)
-        ds.bereich_id = request.form.get('bereich_id', type=int) or None
+        ds.bereich_id = bereich_id
         ds.kategorien = Kategorie.query.filter(Kategorie.id.in_(kat_ids)).all()
         db.session.commit()
         flash('Datensatz aktualisiert.', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard', bereich=bereich_id or ''))
 
-    return render_template('form.html', ds=ds, bereiche=bereiche, kategorien=kategorien)
+    # Kategorien für den Bereich des Datensatzes
+    kategorien = []
+    if ds.bereich_id:
+        kategorien = Kategorie.query.filter_by(bereich_id=ds.bereich_id)\
+                                    .order_by(Kategorie.name).all()
+
+    return render_template(
+        'form.html',
+        ds=ds,
+        bereiche=bereiche,
+        kategorien=kategorien,
+        vorgewaehlter_bereich=ds.bereich_id,
+    )
 
 
 # ─────────────────────────────────────────────
@@ -263,14 +325,15 @@ def detail(ds_id):
 @login_required
 def loeschen(ds_id):
     ds = Datensatz.query.get_or_404(ds_id)
+    bid = ds.bereich_id
     db.session.delete(ds)
     db.session.commit()
     flash('Datensatz gelöscht.', 'info')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('dashboard', bereich=bid or ''))
 
 
 # ─────────────────────────────────────────────
-# Datensatz: Go (Aufruf-Zähler + Redirect)
+# Datensatz: Go (Aufruf-Zähler + URL zurückgeben)
 # ─────────────────────────────────────────────
 
 @app.route('/datensatz/<int:ds_id>/go', methods=['POST'])
@@ -290,7 +353,6 @@ def go(ds_id):
 @login_required
 def einstellungen():
     bereiche = Bereich.query.order_by(Bereich.reihenfolge, Bereich.name).all()
-    kategorien = Kategorie.query.order_by(Kategorie.name).all()
 
     if request.method == 'POST':
         aktion = request.form.get('aktion')
@@ -304,20 +366,32 @@ def einstellungen():
                 db.session.commit()
                 flash(f'Bereich „{name}" angelegt.', 'success')
 
+        # Bereich umbenennen
+        elif aktion == 'bereich_umbenennen':
+            bid = request.form.get('bereich_id', type=int)
+            name = request.form.get('bereich_name_neu', '').strip()
+            b = Bereich.query.get(bid)
+            if b and name:
+                b.name = name
+                db.session.commit()
+                flash(f'Bereich umbenannt in „{name}".', 'success')
+
         # Bereich löschen
         elif aktion == 'bereich_loeschen':
             bid = request.form.get('bereich_id', type=int)
             b = Bereich.query.get(bid)
             if b:
+                name = b.name
                 db.session.delete(b)
                 db.session.commit()
-                flash(f'Bereich „{b.name}" gelöscht.', 'info')
+                flash(f'Bereich „{name}" und alle zugehörigen Kategorien gelöscht.', 'info')
 
-        # Kategorie anlegen
+        # Kategorie anlegen (immer mit Bereich)
         elif aktion == 'kat_neu':
             name = request.form.get('kat_name', '').strip()
-            if name:
-                k = Kategorie(name=name)
+            bid = request.form.get('kat_bereich_id', type=int)
+            if name and bid:
+                k = Kategorie(name=name, bereich_id=bid)
                 db.session.add(k)
                 db.session.commit()
                 flash(f'Kategorie „{name}" angelegt.', 'success')
@@ -327,9 +401,10 @@ def einstellungen():
             kid = request.form.get('kat_id', type=int)
             k = Kategorie.query.get(kid)
             if k:
+                name = k.name
                 db.session.delete(k)
                 db.session.commit()
-                flash(f'Kategorie „{k.name}" gelöscht.', 'info')
+                flash(f'Kategorie „{name}" gelöscht.', 'info')
 
         # Passwort ändern
         elif aktion == 'pw_aendern':
@@ -343,7 +418,24 @@ def einstellungen():
 
         return redirect(url_for('einstellungen'))
 
-    return render_template('settings.html', bereiche=bereiche, kategorien=kategorien)
+    return render_template('settings.html', bereiche=bereiche)
+
+
+# ─────────────────────────────────────────────
+# DB-Migrationen (für bestehende Datenbanken)
+# ─────────────────────────────────────────────
+
+def run_migrations():
+    """Fügt fehlende Spalten zu bestehenden Tabellen hinzu."""
+    with db.engine.connect() as conn:
+        from sqlalchemy import text
+        try:
+            conn.execute(text(
+                'ALTER TABLE kategorien ADD COLUMN bereich_id INTEGER'
+            ))
+            conn.commit()
+        except Exception:
+            pass  # Spalte existiert bereits
 
 
 # ─────────────────────────────────────────────
@@ -352,6 +444,7 @@ def einstellungen():
 
 with app.app_context():
     db.create_all()
+    run_migrations()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
