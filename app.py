@@ -62,13 +62,20 @@ def load_user(user_id):
     return None
 
 
-def get_password_hash():
+def verify_password(eingabe: str) -> bool:
+    """Prüft das eingegebene Passwort – unterstützt Hash-File und Env-Variable."""
     hash_file = os.path.join(DATA_DIR, 'password.hash')
     if os.path.exists(hash_file):
-        with open(hash_file) as f:
-            return f.read().strip()
-    raw = os.environ.get('APP_PASSWORD', 'admin')
-    return generate_password_hash(raw)
+        # Passwort wurde über Einstellungen geändert → Hash-Vergleich
+        try:
+            with open(hash_file) as f:
+                stored = f.read().strip()
+            return check_password_hash(stored, eingabe)
+        except Exception:
+            pass
+    # Fallback: direkter Vergleich mit APP_PASSWORD Env-Variable
+    env_pw = os.environ.get('APP_PASSWORD', 'admin')
+    return eingabe == env_pw
 
 
 def save_password_hash(pw_hash: str):
@@ -88,7 +95,7 @@ def login():
     error = None
     if request.method == 'POST':
         pw = request.form.get('password', '')
-        if check_password_hash(get_password_hash(), pw):
+        if verify_password(pw):
             login_user(dummy_user, remember=True)
             return redirect(request.args.get('next') or url_for('dashboard'))
         error = 'Falsches Passwort.'
