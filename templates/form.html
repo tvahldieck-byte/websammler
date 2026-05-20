@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% block title %}{% if ds %}Bearbeiten{% else %}Neuer Datensatz{% endif %} – WebSammler{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9 col-xl-8">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-{% if ds %}pencil{% else %}plus-circle{% endif %}"></i>
+        {% if ds %}Datensatz bearbeiten{% else %}Neuer Datensatz{% endif %}
+      </h4>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Zurück
+      </a>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <form method="post" id="dsForm">
+
+          {# URL #}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">URL der Webseite *</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+              <input type="url" name="url" id="urlInput" class="form-control"
+                     value="{{ ds.url if ds else '' }}"
+                     placeholder="https://www.youtube.com/watch?v=..."
+                     required>
+              <button type="button" class="btn btn-outline-secondary" id="analyzeBtn"
+                      title="URL analysieren">
+                <i class="bi bi-magic" id="analyzeBtnIcon"></i>
+              </button>
+            </div>
+            <div class="form-text">URL eingeben und Tab drücken oder auf <i class="bi bi-magic"></i> klicken</div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            {# Provider #}
+            <div class="col-6 col-md-4">
+              <label class="form-label fw-semibold">Provider</label>
+              <input type="text" name="provider" id="providerInput" class="form-control"
+                     value="{{ ds.provider if ds else '' }}" readonly>
+            </div>
+
+            {# Thumbnail Vorschau #}
+            <div class="col-6 col-md-4">
+              <label class="form-label fw-semibold">Vorschaubild</label>
+              <div>
+                <img id="thumbnailPreview"
+                     src="{{ ds.thumbnail_url if ds and ds.thumbnail_url else '' }}"
+                     alt="" class="rounded border"
+                     style="height:60px;max-width:100%;object-fit:cover;{% if not (ds and ds.thumbnail_url) %}display:none;{% endif %}">
+                <div id="noThumb" class="text-muted small {% if ds and ds.thumbnail_url %}d-none{% endif %}">
+                  <i class="bi bi-image"></i> Wird automatisch geladen
+                </div>
+              </div>
+              <input type="hidden" name="thumbnail_url" id="thumbnailInput"
+                     value="{{ ds.thumbnail_url if ds else '' }}">
+            </div>
+
+            {# Datum #}
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-semibold">Datum der Erfassung</label>
+              <input type="text" class="form-control"
+                     value="{{ ds.datum.strftime('%d.%m.%Y %H:%M') if ds else 'Wird automatisch gesetzt' }}"
+                     readonly disabled>
+            </div>
+          </div>
+
+          {# Titel #}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Titel *</label>
+            <input type="text" name="titel" id="titelInput" class="form-control"
+                   value="{{ ds.titel if ds else '' }}"
+                   placeholder="Titel der Webseite / des Videos" required>
+          </div>
+
+          {# Bereich #}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Bereich</label>
+            {% if bereiche %}
+              <div class="d-flex flex-wrap gap-2">
+                {% for b in bereiche %}
+                  <div class="form-check m-0">
+                    <input class="form-check-input visually-hidden" type="radio"
+                           name="bereich_id" id="bereich{{ b.id }}" value="{{ b.id }}"
+                           {% if ds and ds.bereich_id == b.id %}checked{% endif %}>
+                    <label class="btn btn-outline-primary px-3 py-2" for="bereich{{ b.id }}">
+                      {{ b.name }}
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted small">
+                Noch keine Bereiche angelegt.
+                <a href="{{ url_for('einstellungen') }}">Bereiche anlegen →</a>
+              </div>
+              <input type="hidden" name="bereich_id" value="">
+            {% endif %}
+          </div>
+
+          {# Kategorien / Themen #}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Thema / Kategorie (Mehrfachauswahl)</label>
+            {% if kategorien %}
+              <div class="d-flex flex-wrap gap-2">
+                {% for k in kategorien %}
+                  <div class="form-check m-0">
+                    <input class="form-check-input visually-hidden" type="checkbox"
+                           name="kategorien" id="kat{{ k.id }}" value="{{ k.id }}"
+                           {% if ds and k in ds.kategorien %}checked{% endif %}>
+                    <label class="btn btn-outline-success px-3 py-2" for="kat{{ k.id }}">
+                      {{ k.name }}
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted small">
+                Noch keine Kategorien angelegt.
+                <a href="{{ url_for('einstellungen') }}">Kategorien anlegen →</a>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="row g-3 mb-3">
+            {# Bildqualität #}
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-semibold">Bildqualität</label>
+              <div class="d-flex gap-3">
+                {% for q in [1, 2, 3] %}
+                  <div class="form-check m-0">
+                    <input class="form-check-input visually-hidden" type="radio"
+                           name="bildqualitaet" id="bq{{ q }}" value="{{ q }}"
+                           {% if ds and ds.bildqualitaet == q %}checked{% endif %}>
+                    <label class="btn btn-outline-warning px-3 py-2" for="bq{{ q }}"
+                           style="font-size:1rem;" title="Bildqualität {{ q }}">
+                      {% for i in range(q) %}★{% endfor %}{% for i in range(3-q) %}☆{% endfor %}
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            {# Länge #}
+            <div class="col-6 col-md-4">
+              <label class="form-label fw-semibold">Länge (Minuten)</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-clock"></i></span>
+                <input type="number" name="laenge_min" class="form-control"
+                       value="{{ ds.laenge_min if ds and ds.laenge_min else '' }}"
+                       min="0" placeholder="0">
+              </div>
+            </div>
+
+            {# Bewertung #}
+            <div class="col-6 col-md-4">
+              <label class="form-label fw-semibold">Bewertung (1–10)</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-star"></i></span>
+                <input type="number" name="bewertung" class="form-control"
+                       value="{{ ds.bewertung if ds and ds.bewertung else '' }}"
+                       min="1" max="10" placeholder="1–10">
+              </div>
+            </div>
+          </div>
+
+          {# Buttons #}
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> Speichern
+            </button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i> Abbrechen
+            </a>
+            {% if ds %}
+              <form method="post" action="{{ url_for('loeschen', ds_id=ds.id) }}"
+                    class="ms-auto"
+                    onsubmit="return confirm('Datensatz wirklich löschen?')">
+                <button type="submit" class="btn btn-outline-danger">
+                  <i class="bi bi-trash"></i> Löschen
+                </button>
+              </form>
+            {% endif %}
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function analyzeUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  const icon = document.getElementById('analyzeBtnIcon');
+  icon.className = 'bi bi-hourglass-split';
+  try {
+    const resp = await fetch('/api/url-info', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url})
+    });
+    const data = await resp.json();
+    if (data.provider) document.getElementById('providerInput').value = data.provider;
+    if (data.titel && !document.getElementById('titelInput').value) {
+      document.getElementById('titelInput').value = data.titel;
+    }
+    if (data.thumbnail_url) {
+      document.getElementById('thumbnailInput').value = data.thumbnail_url;
+      const img = document.getElementById('thumbnailPreview');
+      img.src = data.thumbnail_url;
+      img.style.display = '';
+      document.getElementById('noThumb').classList.add('d-none');
+    }
+  } catch(e) {
+    console.error(e);
+  }
+  icon.className = 'bi bi-magic';
+}
+
+document.getElementById('analyzeBtn').addEventListener('click', analyzeUrl);
+document.getElementById('urlInput').addEventListener('blur', analyzeUrl);
+
+// Styled Radio/Checkbox Buttons
+document.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(inp => {
+  function updateStyle() {
+    const label = document.querySelector('label[for="' + inp.id + '"]');
+    if (!label) return;
+    if (inp.type === 'radio') {
+      // Alle gleiche Gruppe deaktivieren
+      document.querySelectorAll('input[name="' + inp.name + '"]').forEach(other => {
+        const otherLabel = document.querySelector('label[for="' + other.id + '"]');
+        if (otherLabel) otherLabel.classList.remove('active', 'btn-primary', 'btn-warning', 'btn-success');
+      });
+      if (inp.checked) label.classList.add('active');
+    } else {
+      label.classList.toggle('active', inp.checked);
+    }
+  }
+  inp.addEventListener('change', updateStyle);
+  updateStyle();
+});
+</script>
+{% endblock %}

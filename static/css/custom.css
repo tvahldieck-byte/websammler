@@ -1,0 +1,77 @@
+/* WebSammler – Custom Styles */
+
+/* Styled Radio/Checkbox Buttons */
+.form-check-input.visually-hidden:checked + label.btn-outline-primary {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+.form-check-input.visually-hidden:checked + label.btn-outline-success {
+  background-color: #198754;
+  color: #fff;
+  border-color: #198754;
+}
+.form-check-input.visually-hidden:checked + label.btn-outline-warning {
+  background-color: #ffc107;
+  color: #000;
+  border-color: #ffc107;
+}
+
+/* Hover-Effekt für Radio/Checkbox-Labels */
+label.btn-outline-primary:hover,
+label.btn-outline-success:hover,
+label.btn-outline-warning:hover {
+  opacity: 0.85;
+}
+
+/* Tabellen-Zeilen */
+.ds-row:hover {
+  background-color: #f0f7ff !important;
+}
+
+/* Navbar auf Mobile */
+@media (max-width: 576px) {
+  .navbar-brand {
+    font-size: 1rem;
+  }
+  .table-responsive {
+    font-size: 0.85rem;
+  }
+}
+
+/* Karten-Schatten */
+.card {
+  border: none;
+  border-radius: 0.5rem;
+}
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Pill-Badges in der Filterleiste */
+.badge {
+  font-size: 0.78rem;
+}
+
+/* Thumbnail-Bild in Tabelle */
+.table td img {
+  border: 1px solid #dee2e6;
+}
+
+/* Smooth Collapse */
+.collapse {
+  transition: all 0.2s ease;
+}
+
+/* iPhone-optimierte Touch-Targets */
+@media (max-width: 768px) {
+  .btn-sm {
+    padding: 0.35rem 0.7rem;
+  }
+  .form-select-sm,
+  .form-control-sm {
+    font-size: 1rem;
+    height: 38px;
+  }
+}

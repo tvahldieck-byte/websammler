@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Einstellungen – WebSammler{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <h4 class="fw-bold mb-0"><i class="bi bi-gear"></i> Einstellungen</h4>
+  </div>
+
+  {# ── Bereiche ── #}
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-collection"></i> Bereiche
+        <span class="text-muted small">(Radio-Buttons, Einfachauswahl)</span>
+      </div>
+      <div class="card-body">
+        {% if bereiche %}
+          <ul class="list-group mb-3">
+            {% for b in bereiche %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ b.name }}</span>
+                <form method="post" onsubmit="return confirm('Bereich löschen?')">
+                  <input type="hidden" name="aktion" value="bereich_loeschen">
+                  <input type="hidden" name="bereich_id" value="{{ b.id }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted small mb-3">Noch keine Bereiche vorhanden.</p>
+        {% endif %}
+
+        <form method="post" class="d-flex gap-2">
+          <input type="hidden" name="aktion" value="bereich_neu">
+          <input type="text" name="bereich_name" class="form-control form-control-sm"
+                 placeholder="Neuer Bereich..." required>
+          <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+            <i class="bi bi-plus-lg"></i> Anlegen
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── Kategorien ── #}
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-tags"></i> Themen / Kategorien
+        <span class="text-muted small">(Mehrfachauswahl)</span>
+      </div>
+      <div class="card-body">
+        {% if kategorien %}
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for k in kategorien %}
+              <form method="post" class="m-0" onsubmit="return confirm('Kategorie löschen?')">
+                <input type="hidden" name="aktion" value="kat_loeschen">
+                <input type="hidden" name="kat_id" value="{{ k.id }}">
+                <button type="submit" class="btn btn-outline-success btn-sm">
+                  {{ k.name }} <i class="bi bi-x ms-1"></i>
+                </button>
+              </form>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-3">Noch keine Kategorien vorhanden.</p>
+        {% endif %}
+
+        <form method="post" class="d-flex gap-2">
+          <input type="hidden" name="aktion" value="kat_neu">
+          <input type="text" name="kat_name" class="form-control form-control-sm"
+                 placeholder="Neue Kategorie..." required>
+          <button type="submit" class="btn btn-success btn-sm text-nowrap">
+            <i class="bi bi-plus-lg"></i> Anlegen
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── Passwort ändern ── #}
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-key"></i> Passwort ändern
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="aktion" value="pw_aendern">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Neues Passwort</label>
+            <input type="password" name="pw_neu" class="form-control form-control-sm"
+                   required autocomplete="new-password">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Passwort bestätigen</label>
+            <input type="password" name="pw_bestaetigung" class="form-control form-control-sm"
+                   required autocomplete="new-password">
+          </div>
+          <button type="submit" class="btn btn-warning btn-sm">
+            <i class="bi bi-key-fill"></i> Passwort ändern
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
