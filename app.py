@@ -66,22 +66,38 @@ def verify_password(eingabe: str) -> bool:
     """Prüft das eingegebene Passwort – unterstützt Hash-File und Env-Variable."""
     hash_file = os.path.join(DATA_DIR, 'password.hash')
     if os.path.exists(hash_file):
-        # Passwort wurde über Einstellungen geändert → Hash-Vergleich
         try:
             with open(hash_file) as f:
                 stored = f.read().strip()
-            return check_password_hash(stored, eingabe)
+            return check_password_hash(stored, eingabe.strip())
         except Exception:
             pass
-    # Fallback: direkter Vergleich mit APP_PASSWORD Env-Variable
-    env_pw = os.environ.get('APP_PASSWORD', 'admin')
-    return eingabe == env_pw
+    # Direkter Vergleich mit APP_PASSWORD (beide Seiten bereinigt)
+    env_pw = os.environ.get('APP_PASSWORD', 'admin').strip()
+    return eingabe.strip() == env_pw
 
 
 def save_password_hash(pw_hash: str):
     hash_file = os.path.join(DATA_DIR, 'password.hash')
     with open(hash_file, 'w') as f:
         f.write(pw_hash)
+
+
+# ─────────────────────────────────────────────
+# Temporäre Debug-Route (wird nach Test entfernt)
+# ─────────────────────────────────────────────
+
+@app.route('/debug-pw')
+def debug_pw():
+    env_pw = os.environ.get('APP_PASSWORD', 'NICHT GESETZT')
+    hash_file = os.path.join(DATA_DIR, 'password.hash')
+    hash_exists = os.path.exists(hash_file)
+    return (
+        f"APP_PASSWORD Länge: {len(env_pw)} Zeichen | "
+        f"Erste 2 Zeichen: '{env_pw[:2]}' | "
+        f"Letzte 2 Zeichen: '{env_pw[-2:]}' | "
+        f"Hash-File vorhanden: {hash_exists}"
+    )
 
 
 # ─────────────────────────────────────────────
